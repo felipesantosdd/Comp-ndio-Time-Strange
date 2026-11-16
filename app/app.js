@@ -83,6 +83,24 @@
   const link = id => `<a href="#/digimon/${encodeURIComponent(id)}">${esc(nome(id))}</a>`;
   const MARCA = ['', '👁', '★'];
 
+  // ------------------------------------------------------------------ papel no time (papel.js, regra no README)
+  const PAPEL = window.Papel ? window.Papel.calcular(D) : new Map();
+  const PAPEIS = window.Papel ? window.Papel.PAPEIS : [];
+  const PAPEL_CLS = { DPS: 'dps', Controle: 'ctrl', 'Equilíbrio': 'equi', Tanque: 'tanq', Suporte: 'sup' };
+  const EFEITO = { dano: 'Dano', cura: 'Cura', limpeza: 'Limpeza', buff: 'Buff', debuff: 'Debuff', proprio: 'Defesa própria', incerto: 'Incerto' };
+  function tagPapel(id) {
+    const p = PAPEL.get(id);
+    if (!p || oculto(id)) return '';
+    return `<span class="tag papel ${PAPEL_CLS[p.papel]}" title="${esc(p.motivo)}">${esc(p.papel)}${p.incerto ? '?' : ''}</span>`;
+  }
+  function blocoPapel(id) {
+    const p = PAPEL.get(id);
+    if (!p) return '';
+    return `<div class="papel-bloco"><b>Papel no time:</b> ${tagPapel(id)} <span>${esc(p.motivo)}.</span>
+      ${p.incerto ? '<small class="aviso-txt">Rótulo incerto: há golpe de efeito não decifrado que pode mudar a conta.</small>' : ''}
+      <div><small class="suave">Foco sugerido no Monster Arena: <b>${esc(p.foco[0])}</b>, ${esc(p.foco[1])}.</small></div></div>`;
+  }
+
   // ------------------------------------------------------------------ redução por personalidade
   // Habilidade de agente "Digievolução de <categoria>": reduz os atributos exigidos
   // quando a personalidade atual do Digimon é igual à personalidade base do alvo.
@@ -142,7 +160,7 @@
   spoilerBox.addEventListener('change', () => { S.spoiler = spoilerBox.checked; salvar(); ir.manter = true; ir(); });
 
   // ------------------------------------------------------------------ seletor de Digimon com busca
-  function seletor(el, aoEscolher, placeholder) {
+  function seletor(el, aoEscolher, placeholder, filtro) {
     el.classList.add('busca');
     el.innerHTML = `<input type="search" placeholder="${esc(placeholder || 'Buscar Digimon…')}"><div class="sug" hidden></div>`;
     const inp = el.querySelector('input'), sug = el.querySelector('.sug');
@@ -150,9 +168,9 @@
     function mostrar() {
       const q = semAcento(inp.value.trim());
       if (!q) { sug.hidden = true; return; }
-      itens = D.digimon.filter(d => !oculto(d.id) && (semAcento(d.nome).includes(q) || String(d.dex) === q)).slice(0, 30);
+      itens = D.digimon.filter(d => !oculto(d.id) && (semAcento(d.nome).includes(q) || String(d.dex) === q) && (!filtro || filtro(d))).slice(0, 30);
       sel = 0;
-      sug.innerHTML = itens.map((d, i) => `<div data-i="${i}" class="${i === 0 ? 'sel' : ''}">${ret(d.id, 'p')}<span>${esc(d.nome)} <small>${esc(estagio(d.estagio))}</small></span></div>`).join('') || '<div><small>Nada encontrado</small></div>';
+      sug.innerHTML = itens.map((d, i) => `<div data-i="${i}" class="${i === 0 ? 'sel' : ''}">${ret(d.id, 'p')}<span>${esc(d.nome)} <small>${esc(estagio(d.estagio))}</small> ${tagPapel(d.id)}</span></div>`).join('') || '<div><small>Nada encontrado</small></div>';
       sug.hidden = false;
     }
     function escolher(i) { const d = itens[i]; if (!d) return; inp.value = ''; sug.hidden = true; aoEscolher(d.id); }
@@ -172,7 +190,7 @@
   // ------------------------------------------------------------------ lista de Digimon
   rotas.digimon = function (id) {
     if (id) return detalhe(+id);
-    const f = S.vista.lista || (S.vista.lista = { q: '', est: '', tipo: '', fam: '', col: '', dlc: '', ord: 'dex' });
+    const f = S.vista.lista || (S.vista.lista = { q: '', est: '', tipo: '', fam: '', col: '', dlc: '', papel: '', ord: 'dex' });
     app.innerHTML = `
       <div class="filtros">
         <input type="search" id="q" placeholder="Nome ou nº do guia" value="${esc(f.q)}">
@@ -180,12 +198,14 @@
         <select id="tipo"><option value="">Todos os tipos</option>${Object.keys(E.tipos).map(k => `<option value="${k}">${esc(tipoNome(k))}</option>`).join('')}</select>
         <select id="fam"><option value="">Todas as famílias</option>${Object.entries(E.familias).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
         <select id="col"><option value="">Coleção: todos</option><option value="0">Desconhecidos</option><option value="1">Vistos</option><option value="2">Obtidos</option><option value="12">Vistos ou obtidos</option></select>
+        <select id="papel"><option value="">Todos os papéis</option>${PAPEIS.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}</select>
         <select id="dlc"><option value="">Base e DLC</option><option value="b">Só base</option><option value="d">Só DLC</option></select>
         <select id="ord"><option value="dex">Ordem do guia</option><option value="nome">Nome</option><option value="est">Estágio</option>${ST.map((s, k) => `<option value="s${k}">${s} base</option>`).join('')}</select>
         <span class="conta" id="conta"></span>
       </div>
       <div class="grade" id="grade"></div>`;
-    for (const k of ['est', 'tipo', 'fam', 'col', 'dlc', 'ord']) app.querySelector('#' + k).value = f[k];
+    if (f.papel == null || !PAPEIS.includes(f.papel)) f.papel = '';
+    for (const k of ['est', 'tipo', 'fam', 'col', 'dlc', 'papel', 'ord']) app.querySelector('#' + k).value = f[k];
     const desenhar = () => {
       const q = semAcento(f.q.trim());
       let l = D.digimon.filter(d =>
@@ -193,7 +213,8 @@
         (!f.est || d.estagio === +f.est) && (!f.tipo || d.tipo === +f.tipo) &&
         (!f.fam || d.familias.includes(+f.fam)) &&
         (!f.col || (f.col === '12' ? status(d.id) > 0 : status(d.id) === +f.col)) &&
-        (!f.dlc || (f.dlc === 'd') === !!d.dlc));
+        (!f.dlc || (f.dlc === 'd') === !!d.dlc) &&
+        (!f.papel || (!oculto(d.id) && (PAPEL.get(d.id) || {}).papel === f.papel)));
       if (f.ord === 'nome') l.sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
       else if (f.ord === 'est') l.sort((a, b) => a.estagio - b.estagio || a.dex - b.dex);
       else if (f.ord[0] === 's') { const k = +f.ord.slice(1); l.sort((a, b) => ((b.base || [])[k] || 0) - ((a.base || [])[k] || 0)); }
@@ -203,11 +224,11 @@
           <span class="dex">${d.dex}</span><span class="marca-col">${MARCA[status(d.id)]}</span>
           ${ret(d.id)}<span class="nome">${esc(nome(d.id))}</span>
           <span class="meta">${esc(estagio(d.estagio))}${oculto(d.id) ? '' : ' · ' + esc(tipoNome(d.tipo))}</span>
-          ${d.dlc ? '<span class="tag dlc">DLC</span>' : ''}
+          ${tagPapel(d.id)}${d.dlc ? '<span class="tag dlc">DLC</span>' : ''}
         </a>`).join('') || '<p class="vazio">Nenhum Digimon com esses filtros.</p>';
     };
     app.querySelector('#q').addEventListener('input', e => { f.q = e.target.value; desenhar(); });
-    for (const k of ['est', 'tipo', 'fam', 'col', 'dlc', 'ord']) app.querySelector('#' + k).addEventListener('change', e => { f[k] = e.target.value; salvar(); desenhar(); });
+    for (const k of ['est', 'tipo', 'fam', 'col', 'dlc', 'papel', 'ord']) app.querySelector('#' + k).addEventListener('change', e => { f[k] = e.target.value; salvar(); desenhar(); });
     desenhar();
     app.querySelector('#q').focus();
   };
@@ -226,12 +247,12 @@
     }));
   }
   function tabelaGolpes(lista) {
-    return `<div class="tabela-rolagem"><table><thead><tr><th>Golpe</th><th>Elem.</th><th>Natureza</th><th class="num">Poder</th><th class="num">PH</th><th>Alvo</th><th class="num">Prec.</th></tr></thead><tbody>${lista.map(([rot, id]) => {
+    return `<div class="tabela-rolagem"><table><thead><tr><th>Golpe</th><th>Elem.</th><th>Natureza</th><th>Efeito</th><th class="num">Poder</th><th class="num">PH</th><th>Alvo</th><th class="num">Prec.</th></tr></thead><tbody>${lista.map(([rot, id]) => {
       const g = D.golpes[id] || { nome: `#${id}` };
       const ac = g.ac && (g.ac[0] > 1 || g.ac[1] > 1) ? ` ×${g.ac[0]}${g.ac[1] !== g.ac[0] ? '~' + g.ac[1] : ''}` : '';
       const ef = [].concat((g.bufAlvo || []).map(b => `${b[1]}% ${b[0]}`), (g.bufUsu || []).map(b => `${b[0]} (usuário)`));
       return `<tr><td>${rot ? `<small>${esc(rot)}</small> ` : ''}<b>${esc(g.nome)}</b>${g.desc ? `<div class="desc">${esc(g.desc)}</div>` : ''}${ef.length ? `<div class="desc">${esc(ef.join(' · '))}</div>` : ''}</td>
-        <td>${g.el >= 0 ? icElem(g.el) + ' ' + esc(elemNome(g.el)) : ''}</td><td>${esc(D.naturezas[g.nat] || '')}</td>
+        <td>${g.el >= 0 ? icElem(g.el) + ' ' + esc(elemNome(g.el)) : ''}</td><td>${esc(D.naturezas[g.nat] || '')}</td><td>${window.Papel ? esc(EFEITO[window.Papel.efeito(D.golpes[id])]) : ''}</td>
         <td class="num">${g.pod ? fmt(g.pod) + ac : ''}</td><td class="num">${g.ph ? fmt(g.ph) : ''}</td>
         <td>${esc(D.alvos[g.alvo] || '')}</td><td class="num">${g.sempre ? 'sempre' : g.prec ? g.prec + '%' : ''}</td></tr>`;
     }).join('')}</tbody></table></div>`;
@@ -271,6 +292,7 @@
           </div>
           <div class="linha" style="margin-top:8px">${botoesColecao(id)}
             <a href="#/arvore/${id}">Árvore</a> · <a href="#/caminho/${id}">Caminho a partir daqui</a> · <a href="#" id="add-cmp">Comparar</a></div>
+          ${blocoPapel(id)}
           ${d.perfil ? `<p class="perfil">${esc(d.perfil)}</p>` : ''}
         </div>
       </div>
@@ -450,9 +472,15 @@
   }
   rotas.comparar = function () {
     const l = S.cmp.filter(x => porId.has(x));
-    app.innerHTML = `<div class="filtros"><span id="sel"></span><span class="suave">${l.length}/9 abas</span>
+    app.innerHTML = `<div class="filtros"><span id="sel"></span>
+      <select id="papel-cmp" title="Só sugere Digimon com este papel"><option value="">Qualquer papel</option>${PAPEIS.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}</select>
+      <span class="suave">${l.length}/9 abas</span>
       ${l.length ? '<button id="limpar">Limpar</button>' : ''}</div><div class="cmp" id="cmp" style="--n:${Math.max(1, l.length)}"></div>`;
-    seletor(app.querySelector('#sel'), x => adicionarComparar(x) || rotas.comparar(), 'Adicionar Digimon…');
+    const papelCmp = app.querySelector('#papel-cmp');
+    papelCmp.value = PAPEIS.includes(rotas.comparar.papel) ? rotas.comparar.papel : '';
+    papelCmp.addEventListener('change', () => { rotas.comparar.papel = papelCmp.value; });
+    seletor(app.querySelector('#sel'), x => adicionarComparar(x) || rotas.comparar(), 'Adicionar Digimon…',
+      d => !papelCmp.value || (PAPEL.get(d.id) || {}).papel === papelCmp.value);
     if (app.querySelector('#limpar')) app.querySelector('#limpar').addEventListener('click', () => { S.cmp = []; salvar(); rotas.comparar(); });
     if (!l.length) { app.querySelector('#cmp').innerHTML = '<p class="vazio">Adicione até 9 Digimon para comparar lado a lado.</p>'; return; }
     const melhor = ST.map((_, k) => Math.max(...l.map(id => (porId.get(id).base || [])[k] || 0)));
@@ -464,7 +492,8 @@
           ${i ? `<button data-mv="${i}" data-d="-1" title="Mover para a esquerda">←</button>` : ''}
           ${i < l.length - 1 ? `<button data-mv="${i}" data-d="1" title="Mover para a direita">→</button>` : ''}
           <button data-rm="${id}" title="Remover">✕</button></span></div>
-        <div style="text-align:center">${ret(id, 'g')}<h3>${link(id)}</h3><small>${esc(estagio(d.estagio))}${o ? '' : ' · ' + esc(tipoNome(d.tipo)) + ' · ' + esc(persNome(d.pers))}</small></div>
+        <div style="text-align:center">${ret(id, 'g')}<h3>${link(id)}</h3><small>${esc(estagio(d.estagio))}${o ? '' : ' · ' + esc(tipoNome(d.tipo)) + ' · ' + esc(persNome(d.pers))}</small>
+          ${o || !PAPEL.get(id) ? '' : `<div class="papel-cmp">${tagPapel(id)}<div><small>${esc(PAPEL.get(id).motivo)}</small></div></div>`}</div>
         ${o ? '' : `<table>${(d.base || []).map((v, k) => `<tr><td>${ST[k]}</td><td class="num ${v === melhor[k] && l.length > 1 ? 'melhor' : ''}">${fmt(v)}</td></tr>`).join('')}<tr><td><b>Total</b></td><td class="num"><b>${fmt(tot)}</b></td></tr></table>
         <h3 style="margin-top:10px">Resistências</h3>
         <div>${d.res.map((v, k) => v ? `<div>${icElem(k + 1)} ${esc(elemNome(k + 1))}: <span class="v${v}">${RES[v]}</span></div>` : '').join('') || '<small>Nenhuma fraqueza ou resistência</small>'}</div>

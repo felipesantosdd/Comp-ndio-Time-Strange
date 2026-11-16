@@ -69,6 +69,15 @@ main { max-width: 1280px; margin: 0 auto; padding: 16px; }
 .ret.oculto { filter: brightness(0) opacity(.55); }
 .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--painel2); color: var(--suave); font-size: .78rem; margin: 1px 2px 1px 0; }
 .tag.dlc { background: #7c3aed22; color: #8b5cf6; }
+.tag.papel { font-weight: 600; }
+.tag.papel.dps { background: #dc262622; color: var(--ruim); }
+.tag.papel.ctrl { background: #7c3aed22; color: var(--imune); }
+.tag.papel.equi { background: var(--painel2); color: var(--texto); }
+.tag.papel.tanq { background: #b4530922; color: var(--aviso); }
+.tag.papel.sup { background: #15803d22; color: var(--ok); }
+.papel-bloco { margin-top: 8px; }
+.papel-cmp { margin-top: 6px; }
+.aviso-txt { color: var(--aviso); display: block; }
 .ic { width: 18px; height: 18px; vertical-align: -4px; }
 
 /* detalhe */

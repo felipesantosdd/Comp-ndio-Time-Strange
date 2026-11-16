@@ -20,6 +20,7 @@ Opções do extrator: `--jogo` (pasta do jogo, padrão a da Steam), `--mvgltools
 ## O que tem
 
 * **Digimon**: os 476 números do Guia de Campo (base e DLCs 01, 02, 03, 06 e 17), com estágio, tipo, personalidade base, famílias, atributos base, resistências com multiplicador, golpes especiais e aprendidos, perfil, locais, de onde evolui e para onde evolui com todos os requisitos.
+* **Papel no time**: cada Digimon recebe DPS, Controle, Equilíbrio, Tanque ou Suporte, com uma linha de motivo e o foco sugerido no Monster Arena. Dá para filtrar por papel na lista e nas sugestões da comparação. A regra está na seção "Papel no time".
 * **Árvore de evolução** centrada em qualquer Digimon, com profundidade de 1 a 6 e marca de obtido.
 * **Caminho mais curto** entre dois Digimon, com filtro por estágio, patente de agente máxima, só obtidos, e De-digievolução ligada ou não.
 * **Comparação** lado a lado de até 9 Digimon.
@@ -46,10 +47,54 @@ Nada foi chutado em silêncio. O que não está provado aparece marcado no app o
 * **Condição especial**: algumas evoluções (Chronomon, Jupitermon, Aegiochusmon, Elo) têm um valor 46 em colunas não decifradas. O app mostra "condição especial de história".
 * Categorias de item 2 (Especial) e 8 (Itens de valor) podem estar trocadas entre si.
 
+## Papel no time
+
+Calculado no próprio app (`app\papel.js`) a partir de dados que o extrator já gera: natureza, alvo, buffs e descrição de cada golpe (`battle_skill`) e os atributos base da espécie. Não usa dado de partida, nível nem treino. Conta só os golpes da espécie (especiais e aprendidos), não os Discos de Habilidade.
+
+**1. Efeito de cada golpe.** Aparece na coluna "Efeito" da tabela de golpes.
+
+| Efeito | Quando |
+|---|---|
+| Dano | natureza física, mágica, dano fixo, dano em % de PV ou Cross Arts (col 22 = 1, 2, 4, 5, 11), mesmo que também aplique debuff |
+| Cura | natureza cura, cura fixa ou reviver (col 22 = 8, 9, 10) |
+| Limpeza | natureza suporte com alvo aliado, sem buff, e descrição do jogo com "Remove" (Meditação, Normalizar, Dissipar, Restaurar) |
+| Buff | natureza suporte com alvo aliado e buff_set no alvo (Carga, Campo, Barreira, redução de dano recebido) |
+| Debuff | natureza suporte com alvo inimigo e buff_set no alvo (Vinculação, Ruptura, estados), ou descrição com "Remove bônus" ou "Rouba" |
+| Defesa própria | natureza suporte com alvo no próprio usuário: Provocação, contra-ataque, reflexo, anular dano |
+| Incerto | o resto. Hoje são 4 golpes: Bomba Milagrosa e Virar Barricada (sem descrição nem buff no jogo), Braço Triplo (efeito aleatório) e Reversão de Personagem (alvo inimigo ou aliado). Não são chutados |
+
+**2. Perfil dos atributos.** Razão = maior entre ATQ e INT, dividido pela média de DEF e ESP. Razão de 1,5 ou mais é perfil ofensivo ("ATQ alto" ou "INT alto"). Razão de 1,0 ou menos é defensivo ("DEF e ESP altos"). O meio é "atributos equilibrados". PV conta à parte: "PV alto para o estágio" é PV base 15% ou mais acima da média do mesmo estágio.
+
+**3. Pontos.** Cura vale +2, buff +1, limpeza +1, debuff +0,5, golpe de dano −1. Perfil ofensivo soma −1 e defensivo +1. Defesa própria e incerto valem 0.
+
+**4. Papel**, na primeira regra que bater:
+
+1. **Tanque**: tem golpe de defesa própria e perfil defensivo.
+2. **Suporte**: pontos 0 ou mais e pelo menos 1 golpe de cura, buff ou limpeza.
+3. **Tanque**: golpe de defesa própria com razão abaixo de 1,25, ou perfil defensivo com PV alto para o estágio.
+4. **Controle**: 2 ou mais golpes de debuff, e não menos debuff que cura, buff e limpeza somados.
+5. **DPS**: pontos −2 ou menos.
+6. **Equilíbrio**: o resto, quem tem um pouco de cada.
+
+Quase todo Digimon tem 2 ou 3 golpes de dano, por isso dano pesa menos que cura: sem isso, só quem não tem especial de dano viraria Suporte.
+
+**Rótulo incerto.** Se o Digimon tem golpe de efeito incerto, o app refaz a conta lendo esses golpes como cura e depois como dano. Se o papel muda em algum dos dois casos, a ficha mostra "?" no rótulo e um aviso.
+
+**Foco sugerido no Monster Arena.** Lido em `bridge\timestranger\ma_realtime.lua` do Monster Arena (`MA_foco`): o foco Suporte cura primeiro e põe na frente dos ataques todo golpe que não é dano nem cura, debuff e Provocação inclusive. Por isso: DPS vai para Ataque. Suporte, Controle e Tanque vão para Suporte. Equilíbrio fica em Equilíbrio. A sugestão vem da leitura do código, não de teste em luta.
+
+Resultado com os dados atuais: 253 DPS, 81 Equilíbrio, 80 Suporte, 32 Controle, 30 Tanque, 21 com rótulo incerto. Conferidos à mão: Agumon (DPS), WarGreymon (DPS), Seraphimon (Suporte), Angewomon (Equilíbrio, 3 golpes mágicos de dano e INT 1.280 pesam mais que Aura e Normalizar), Craniamon e BigMamemon (Tanque), Piedmon e Puppetmon (Controle).
+
+Rodar a regra fora do navegador, para conferir:
+
+```
+node -e "global.window={};require('./app/dados/dados.js');const P=require('./app/papel.js');console.log(P.calcular(window.DADOS).get(27))"
+```
+
 ## Estrutura
 
 ```
 app\index.html, app.css, app.js   o app (HTML, CSS e JS puros)
+app\papel.js                      regra do papel no time (também roda no Node)
 app\dados\                        gerado pelo extrator (fora do git)
 extrair\extrair.py                ponto de entrada
 extrair\pacotes.py                índice dos .mvgl e chamada do MVGLToolsCLI
