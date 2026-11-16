@@ -46,6 +46,7 @@
   const TANQUE_RAZAO = 1.25; // defesa própria só conta como tanque abaixo desta razão
   const TANQUE_PV = 1.15;    // PV pelo menos 15% acima da média do estágio
   const CONTROLE = 2;        // golpes de debuff
+  const ESP_CURA = 1.15;     // ESP pelo menos 15% acima da média do estágio: cura forte
 
   const PAPEIS = ['DPS', 'Controle', 'Equilíbrio', 'Tanque', 'Suporte'];
   // Foco do Monster Arena (ma_realtime.lua, MA_foco): o Suporte cura primeiro e põe na
@@ -64,42 +65,50 @@
     return p;
   }
 
-  function classificar(conta, perfil, razao, pvRel) {
-    const ajuste = perfil === 'defensivo' ? 1 : perfil === 'ofensivo' ? -1 : 0;
+  // Quem tem golpe de cura é medido pelo ESP: a cura escala com ESP, não com INT
+  // (relato de comunidade e guias, ver README). Os outros, pela razão ataque/defesa.
+  function ajusteAtributos(conta, perfil, espRel) {
+    if (conta.cura >= 1) return espRel >= ESP_CURA ? 1 : 0;
+    return perfil === 'defensivo' ? 1 : perfil === 'ofensivo' ? -1 : 0;
+  }
+
+  function classificar(conta, perfil, razao, pvRel, espRel) {
+    const ajuste = ajusteAtributos(conta, perfil, espRel);
     const pontos = pontuar(conta, ajuste);
     const apoio = conta.cura + conta.buff + conta.limpeza;
     if (conta.proprio >= 1 && perfil === 'defensivo') return 'Tanque'; // sinal mais forte que o kit de apoio
     if (pontos >= SUPORTE && apoio >= 1) return 'Suporte';
     if ((conta.proprio >= 1 && razao != null && razao < TANQUE_RAZAO) ||
         (perfil === 'defensivo' && pvRel >= TANQUE_PV)) return 'Tanque';
-    if (conta.debuff >= CONTROLE && conta.debuff >= apoio) return 'Controle';
+    if (conta.debuff >= CONTROLE && conta.debuff >= apoio && perfil !== 'ofensivo') return 'Controle';
     if (pontos <= DPS) return 'DPS';
     return 'Equilíbrio';
   }
 
   const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
 
-  /** Papel de um Digimon. pvMedio: PV base médio do estágio dele. */
-  function digimon(d, golpes, pvMedio) {
+  /** Papel de um Digimon. medio: { pv, esp } base médios do estágio dele. */
+  function digimon(d, golpes, medio) {
     const ids = d.especiais.concat(d.aprende.map(a => a[1]));
     const conta = { dano: 0, cura: 0, limpeza: 0, buff: 0, debuff: 0, proprio: 0, incerto: 0 };
     for (const id of ids) conta[efeito(golpes[id])]++;
 
-    let razao = null, perfil = 'neutro', pvRel = 1;
+    let razao = null, perfil = 'neutro', pvRel = 1, espRel = 1;
     if (d.base) {
       const [pv, , atq, def, int, esp] = d.base;
       razao = Math.max(atq, int) / ((def + esp) / 2);
       if (razao >= OFENSIVO) perfil = 'ofensivo';
       else if (razao <= DEFENSIVO) perfil = 'defensivo';
-      if (pvMedio) pvRel = pv / pvMedio;
+      if (medio && medio.pv) pvRel = pv / medio.pv;
+      if (medio && medio.esp) espRel = esp / medio.esp;
     }
-    const papel = classificar(conta, perfil, razao, pvRel);
+    const papel = classificar(conta, perfil, razao, pvRel, espRel);
 
     // incerto quando os golpes não decifrados, lidos todos como cura ou todos como dano, mudam o rótulo
     const n = conta.incerto;
     const como = k => Object.assign({}, conta, { incerto: 0, [k]: conta[k] + n });
-    const incerto = n > 0 && (classificar(como('cura'), perfil, razao, pvRel) !== papel ||
-                              classificar(como('dano'), perfil, razao, pvRel) !== papel);
+    const incerto = n > 0 && (classificar(como('cura'), perfil, razao, pvRel, espRel) !== papel ||
+                              classificar(como('dano'), perfil, razao, pvRel, espRel) !== papel);
 
     const g = [];
     if (conta.dano) g.push(plural(conta.dano, 'golpe de dano', 'golpes de dano'));
@@ -111,28 +120,30 @@
     const partes = g.length ? [g.join(', ')] : [];
     if (d.base) {
       const [, , atq, , int] = d.base;
-      if (perfil === 'ofensivo') partes.push(`${atq >= int ? 'ATQ' : 'INT'} alto`);
+      if (conta.cura >= 1) partes.push(espRel >= ESP_CURA ? 'ESP alto para o estágio (cura forte)' : 'ESP comum para o estágio');
+      else if (perfil === 'ofensivo') partes.push(`${atq >= int ? 'ATQ' : 'INT'} alto`);
       else if (perfil === 'defensivo') partes.push('DEF e ESP altos');
       else partes.push('atributos equilibrados');
       if (pvRel >= TANQUE_PV) partes.push('PV alto para o estágio');
     }
     if (n) partes.push(plural(n, 'golpe de efeito incerto', 'golpes de efeito incerto'));
 
-    return { papel, motivo: partes.join(', '), conta, perfil, razao, pvRel, incerto, foco: FOCO[papel] };
+    return { papel, motivo: partes.join(', '), conta, perfil, razao, pvRel, espRel, incerto, foco: FOCO[papel] };
   }
 
   /** Papel de todos os Digimon dos dados: Map id -> resultado de digimon(). */
   function calcular(D) {
-    const soma = {}, qtd = {};
+    const soma = {};
     for (const d of D.digimon) if (d.base) {
-      soma[d.estagio] = (soma[d.estagio] || 0) + d.base[0];
-      qtd[d.estagio] = (qtd[d.estagio] || 0) + 1;
+      const s = soma[d.estagio] || (soma[d.estagio] = { pv: 0, esp: 0, n: 0 });
+      s.pv += d.base[0]; s.esp += d.base[5]; s.n++;
     }
-    return new Map(D.digimon.map(d => [d.id, digimon(d, D.golpes, qtd[d.estagio] ? soma[d.estagio] / qtd[d.estagio] : 0)]));
+    const medio = e => (soma[e] ? { pv: soma[e].pv / soma[e].n, esp: soma[e].esp / soma[e].n } : null);
+    return new Map(D.digimon.map(d => [d.id, digimon(d, D.golpes, medio(d.estagio))]));
   }
 
   const api = { efeito, digimon, calcular, classificar, PESO, PAPEIS, FOCO,
-    OFENSIVO, DEFENSIVO, SUPORTE, DPS, TANQUE_RAZAO, TANQUE_PV, CONTROLE };
+    OFENSIVO, DEFENSIVO, SUPORTE, DPS, TANQUE_RAZAO, TANQUE_PV, CONTROLE, ESP_CURA };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.Papel = api;
 })(typeof window !== 'undefined' ? window : this);

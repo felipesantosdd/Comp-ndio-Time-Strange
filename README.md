@@ -65,14 +65,16 @@ Calculado no próprio app (`app\papel.js`) a partir de dados que o extrator já 
 
 **2. Perfil dos atributos.** Razão = maior entre ATQ e INT, dividido pela média de DEF e ESP. Razão de 1,5 ou mais é perfil ofensivo ("ATQ alto" ou "INT alto"). Razão de 1,0 ou menos é defensivo ("DEF e ESP altos"). O meio é "atributos equilibrados". PV conta à parte: "PV alto para o estágio" é PV base 15% ou mais acima da média do mesmo estágio.
 
-**3. Pontos.** Cura vale +2, buff +1, limpeza +1, debuff +0,5, golpe de dano −1. Perfil ofensivo soma −1 e defensivo +1. Defesa própria e incerto valem 0.
+Quem tem golpe de cura é medido pelo ESP, não pela razão: "ESP alto para o estágio (cura forte)" é ESP base 15% ou mais acima da média do mesmo estágio. Motivo: a cura escala com ESP. Isso não foi provado nas tabelas do jogo. Vem de guias e de relato de jogador, que concordam entre si (fontes no fim desta seção).
+
+**3. Pontos.** Cura vale +2, buff +1, limpeza +1, debuff +0,5, golpe de dano −1. Defesa própria e incerto valem 0. Ajuste pelos atributos: quem tem cura soma +1 com ESP alto para o estágio e 0 sem ele (INT e ATQ altos não descontam, porque não mexem na cura). Os demais somam −1 com perfil ofensivo e +1 com defensivo.
 
 **4. Papel**, na primeira regra que bater:
 
 1. **Tanque**: tem golpe de defesa própria e perfil defensivo.
 2. **Suporte**: pontos 0 ou mais e pelo menos 1 golpe de cura, buff ou limpeza.
 3. **Tanque**: golpe de defesa própria com razão abaixo de 1,25, ou perfil defensivo com PV alto para o estágio.
-4. **Controle**: 2 ou mais golpes de debuff, e não menos debuff que cura, buff e limpeza somados.
+4. **Controle**: 2 ou mais golpes de debuff, não menos debuff que cura, buff e limpeza somados, e perfil que não seja ofensivo. Debuffer com ATQ ou INT alto bate mais do que atrapalha e cai em DPS.
 5. **DPS**: pontos −2 ou menos.
 6. **Equilíbrio**: o resto, quem tem um pouco de cada.
 
@@ -82,7 +84,15 @@ Quase todo Digimon tem 2 ou 3 golpes de dano, por isso dano pesa menos que cura:
 
 **Foco sugerido no Monster Arena.** Lido em `bridge\timestranger\ma_realtime.lua` do Monster Arena (`MA_foco`): o foco Suporte cura primeiro e põe na frente dos ataques todo golpe que não é dano nem cura, debuff e Provocação inclusive. Por isso: DPS vai para Ataque. Suporte, Controle e Tanque vão para Suporte. Equilíbrio fica em Equilíbrio. A sugestão vem da leitura do código, não de teste em luta.
 
-Resultado com os dados atuais: 253 DPS, 81 Equilíbrio, 80 Suporte, 32 Controle, 30 Tanque, 21 com rótulo incerto. Conferidos à mão: Agumon (DPS), WarGreymon (DPS), Seraphimon (Suporte), Angewomon (Equilíbrio, 3 golpes mágicos de dano e INT 1.280 pesam mais que Aura e Normalizar), Craniamon e BigMamemon (Tanque), Piedmon e Puppetmon (Controle).
+Resultado com os dados atuais: 261 DPS, 97 Suporte, 72 Equilíbrio, 30 Tanque, 16 Controle, 21 com rótulo incerto.
+
+**Conferência com a comunidade** (busca em 16/11/2026: fóruns da Steam e da GameFAQs e guias, nenhum tópico do Reddit apareceu). Batem: Venusmon, Varodurumon, Dianamon, Angemon e Sakuyamon (Suporte), UltimateBrachiomon, Guardromon e Mamemon (Tanque), Plutomon e TyrantKabuterimon (DPS). Divergem, com motivo conhecido:
+
+* Aegiomon: guia o chama de curandeiro e debuffer. Aqui sai Tanque, porque tem Provocação e 4 golpes de dano contra 1 de cura.
+* Apocalymon: guia o usa como curandeiro. Aqui sai DPS, porque a cura dele viria de Disco de Habilidade, que a regra não conta.
+* Patamon: guias dizem que serve de suporte ou de DPS. Aqui sai DPS, porque só tem limpeza, sem cura.
+
+Fontes sobre a cura escalar com ESP: [Game8, What Does Spirit (SPI) Do?](https://game8.co/games/Digimon-Story-Time-Stranger/archives/556236), [Grindosaur, Stats](https://www.grindosaur.com/en/games/digimon-story-time-stranger/stats), [TheGamer, LOVE YOU da Venusmon escala com SPI](https://www.thegamer.com/digimon-story-time-stranger-best-digimon-lategame-endgame-plutomon-apocalymon-venusmon-guide/) e [GameFAQs, Healing will improve?](https://gamefaqs.gamespot.com/boards/513530-digimon-story-time-stranger/81050942), onde um jogador diz que a cura escala só com SPI.
 
 Rodar a regra fora do navegador, para conferir:
 
