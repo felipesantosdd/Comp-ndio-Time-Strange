@@ -87,7 +87,12 @@
   const PAPEL = window.Papel ? window.Papel.calcular(D) : new Map();
   const PAPEIS = window.Papel ? window.Papel.PAPEIS : [];
   const PAPEL_CLS = { DPS: 'dps', Controle: 'ctrl', 'Equilíbrio': 'equi', Tanque: 'tanq', Suporte: 'sup' };
-  const EFEITO = { dano: 'Dano', cura: 'Cura', limpeza: 'Limpeza', buff: 'Buff', debuff: 'Debuff', proprio: 'Defesa própria', incerto: 'Incerto' };
+  const EFEITO = { dano: 'Dano', cura: 'Cura', buff: 'Buff de ATQ ou VEL', controle: 'Controle', inerte: 'Sem efeito no mod', incerto: 'Incerto' };
+  function efeitoTxt(g) {
+    if (!window.Papel) return '';
+    const e = window.Papel.efeito(g);
+    return e.tipo === 'dano' && e.controle ? 'Dano + estado' : EFEITO[e.tipo];
+  }
   function tagPapel(id) {
     const p = PAPEL.get(id);
     if (!p || oculto(id)) return '';
@@ -96,9 +101,9 @@
   function blocoPapel(id) {
     const p = PAPEL.get(id);
     if (!p) return '';
-    return `<div class="papel-bloco"><b>Papel no time:</b> ${tagPapel(id)} <span>${esc(p.motivo)}.</span>
+    return `<div class="papel-bloco"><b>Papel no Monster Arena:</b> ${tagPapel(id)} <span>${esc(p.motivo)}.</span>
       ${p.incerto ? '<small class="aviso-txt">Rótulo incerto: há golpe de efeito não decifrado que pode mudar a conta.</small>' : ''}
-      <div><small class="suave">Foco sugerido no Monster Arena: <b>${esc(p.foco[0])}</b>, ${esc(p.foco[1])}.</small></div></div>`;
+      <div><small class="suave">Foco sugerido: <b>${esc(p.foco[0])}</b>, ${esc(p.foco[1])}.${p.avisoFoco ? ' Atenção: ' + esc(p.avisoFoco) + '.' : ''}</small></div></div>`;
   }
 
   // ------------------------------------------------------------------ redução por personalidade
@@ -247,12 +252,12 @@
     }));
   }
   function tabelaGolpes(lista) {
-    return `<div class="tabela-rolagem"><table><thead><tr><th>Golpe</th><th>Elem.</th><th>Natureza</th><th>Efeito</th><th class="num">Poder</th><th class="num">PH</th><th>Alvo</th><th class="num">Prec.</th></tr></thead><tbody>${lista.map(([rot, id]) => {
+    return `<div class="tabela-rolagem"><table><thead><tr><th>Golpe</th><th>Elem.</th><th>Natureza</th><th title="O que o golpe faz na rinha em tempo real do Monster Arena">Efeito no mod</th><th class="num">Poder</th><th class="num">PH</th><th>Alvo</th><th class="num">Prec.</th></tr></thead><tbody>${lista.map(([rot, id]) => {
       const g = D.golpes[id] || { nome: `#${id}` };
       const ac = g.ac && (g.ac[0] > 1 || g.ac[1] > 1) ? ` ×${g.ac[0]}${g.ac[1] !== g.ac[0] ? '~' + g.ac[1] : ''}` : '';
       const ef = [].concat((g.bufAlvo || []).map(b => `${b[1]}% ${b[0]}`), (g.bufUsu || []).map(b => `${b[0]} (usuário)`));
       return `<tr><td>${rot ? `<small>${esc(rot)}</small> ` : ''}<b>${esc(g.nome)}</b>${g.desc ? `<div class="desc">${esc(g.desc)}</div>` : ''}${ef.length ? `<div class="desc">${esc(ef.join(' · '))}</div>` : ''}</td>
-        <td>${g.el >= 0 ? icElem(g.el) + ' ' + esc(elemNome(g.el)) : ''}</td><td>${esc(D.naturezas[g.nat] || '')}</td><td>${window.Papel ? esc(EFEITO[window.Papel.efeito(D.golpes[id])]) : ''}</td>
+        <td>${g.el >= 0 ? icElem(g.el) + ' ' + esc(elemNome(g.el)) : ''}</td><td>${esc(D.naturezas[g.nat] || '')}</td><td>${esc(efeitoTxt(D.golpes[id]))}</td>
         <td class="num">${g.pod ? fmt(g.pod) + ac : ''}</td><td class="num">${g.ph ? fmt(g.ph) : ''}</td>
         <td>${esc(D.alvos[g.alvo] || '')}</td><td class="num">${g.sempre ? 'sempre' : g.prec ? g.prec + '%' : ''}</td></tr>`;
     }).join('')}</tbody></table></div>`;

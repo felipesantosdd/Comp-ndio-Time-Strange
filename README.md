@@ -20,7 +20,7 @@ Opções do extrator: `--jogo` (pasta do jogo, padrão a da Steam), `--mvgltools
 ## O que tem
 
 * **Digimon**: os 476 números do Guia de Campo (base e DLCs 01, 02, 03, 06 e 17), com estágio, tipo, personalidade base, famílias, atributos base, resistências com multiplicador, golpes especiais e aprendidos, perfil, locais, de onde evolui e para onde evolui com todos os requisitos.
-* **Papel no time**: cada Digimon recebe DPS, Controle, Equilíbrio, Tanque ou Suporte, com uma linha de motivo e o foco sugerido no Monster Arena. Dá para filtrar por papel na lista e nas sugestões da comparação. A regra está na seção "Papel no time".
+* **Papel no Monster Arena**: cada Digimon recebe DPS, Controle, Equilíbrio, Tanque ou Suporte para a rinha em tempo real do mod, com uma linha de motivo e o foco sugerido. Dá para filtrar por papel na lista e nas sugestões da comparação. A regra está na seção "Papel no time".
 * **Árvore de evolução** centrada em qualquer Digimon, com profundidade de 1 a 6 e marca de obtido.
 * **Caminho mais curto** entre dois Digimon, com filtro por estágio, patente de agente máxima, só obtidos, e De-digievolução ligada ou não.
 * **Comparação** lado a lado de até 9 Digimon.
@@ -49,56 +49,56 @@ Nada foi chutado em silêncio. O que não está provado aparece marcado no app o
 
 ## Papel no time
 
-Calculado no próprio app (`app\papel.js`) a partir de dados que o extrator já gera: natureza, alvo, buffs e descrição de cada golpe (`battle_skill`) e os atributos base da espécie. Não usa dado de partida, nível nem treino. Conta só os golpes da espécie (especiais e aprendidos), não os Discos de Habilidade.
+O papel é para o **Monster Arena**, o mod que troca o turno do jogo por rinha em tempo real. Ele segue o que o laço do mod faz hoje (`bridge\timestranger\ma_realtime.lua` do projeto Monster Arena, lido em 16/11/2026 no commit `79435f0`), não o combate por turno. Se o mod mudar a conta de dano, cura ou estados, a regra precisa mudar junto. Nada aqui foi testado em luta.
 
-**1. Efeito de cada golpe.** Aparece na coluna "Efeito" da tabela de golpes.
+Calculado no próprio app (`app\papel.js`) com dados que o extrator já gera: natureza, alvo, buffs e descrição de cada golpe (`battle_skill`) e os atributos base. Conta os golpes da espécie (especiais e aprendidos). O mod usa os golpes equipados de verdade quando o jogo responde, então disco de habilidade equipado muda o kit.
+
+**Como o mod resolve a luta** (o que pesa na regra):
+
+* Dano: PV máximo do alvo × 6,5% × 2·ATQ/(ATQ + DEF do alvo), com especial 2,2×. Só ATQ e DEF contam. INT e ESP não entram, nem em golpe mágico. PV alto não protege, porque cada golpe tira a mesma fração dele.
+* Cura: potência/2 % do PV máximo do alvo (Cura, potência 40: 20%). Nenhum atributo entra, então qualquer Digimon com cura cura igual.
+* Buffs e debuffs que mudam algo: ATQ ↑ e VEL ↑ deixam o lutador 1,25× mais rápido por 20 s, e ATQ ↓ e VEL ↓ deixam 1,25× mais lento (`MA_vel_atualiza`). Confusão, Paralisia, Sono, Caótico, Imobilização, Sono Profundo e Cristalização tiram a ação por 5 s. Veneno e Veneno Mortal tiram 6% do PV a cada 5 s até o fim da luta.
+* Sem efeito na luta, só aparece no card: buffs e debuffs de DEF, INT, ESP, PREC, EVAS e CRÍT, resistências, Provocação, contra-ataque, reflexo, redução de dano, imunidades e limpeza de estado.
+* Golpe recarrega em 4 + 0,12 × PH segundos. Sem golpe pronto, sai ataque comum, então todo mundo bate o tempo todo.
+
+**1. Efeito de cada golpe no mod** (coluna "Efeito no mod" na tabela de golpes):
 
 | Efeito | Quando |
 |---|---|
-| Dano | natureza física, mágica, dano fixo, dano em % de PV ou Cross Arts (col 22 = 1, 2, 4, 5, 11), mesmo que também aplique debuff |
-| Cura | natureza cura, cura fixa ou reviver (col 22 = 8, 9, 10) |
-| Limpeza | natureza suporte com alvo aliado, sem buff, e descrição do jogo com "Remove" (Meditação, Normalizar, Dissipar, Restaurar) |
-| Buff | natureza suporte com alvo aliado e buff_set no alvo (Carga, Campo, Barreira, redução de dano recebido) |
-| Debuff | natureza suporte com alvo inimigo e buff_set no alvo (Vinculação, Ruptura, estados), ou descrição com "Remove bônus" ou "Rouba" |
-| Defesa própria | natureza suporte com alvo no próprio usuário: Provocação, contra-ataque, reflexo, anular dano |
-| Incerto | o resto. Hoje são 4 golpes: Bomba Milagrosa e Virar Barricada (sem descrição nem buff no jogo), Braço Triplo (efeito aleatório) e Reversão de Personagem (alvo inimigo ou aliado). Não são chutados |
+| Dano | natureza de dano (col 22 = 1, 2, 4, 5, 11). "Dano + estado" quando também aplica um estado que vale no mod |
+| Cura | natureza de cura (col 22 = 8, 9, 10) |
+| Buff de ATQ ou VEL | natureza suporte em aliado ou em si com Aumento de ATQ ou de VEL (Carga e Campo de Ataque e de Velocidade) |
+| Controle | natureza suporte em inimigo com estado que vale no mod (lista acima) |
+| Sem efeito no mod | natureza suporte cujo efeito o mod ignora |
+| Incerto | sem dado para decidir. Hoje 4 golpes: Bomba Milagrosa, Virar Barricada, Braço Triplo e Reversão de Personagem. Não são chutados |
 
-**2. Perfil dos atributos.** Razão = maior entre ATQ e INT, dividido pela média de DEF e ESP. Razão de 1,5 ou mais é perfil ofensivo ("ATQ alto" ou "INT alto"). Razão de 1,0 ou menos é defensivo ("DEF e ESP altos"). O meio é "atributos equilibrados". PV conta à parte: "PV alto para o estágio" é PV base 15% ou mais acima da média do mesmo estágio.
+**2. Atributos.** ATQ e DEF comparados com a média do mesmo estágio: "ATQ alto" é 15% ou mais acima, "DEF alta" é 20% ou mais acima.
 
-Quem tem golpe de cura é medido pelo ESP, não pela razão: "ESP alto para o estágio (cura forte)" é ESP base 15% ou mais acima da média do mesmo estágio. Motivo: a cura escala com ESP. Isso não foi provado nas tabelas do jogo. Vem de guias e de relato de jogador, que concordam entre si (fontes no fim desta seção).
+**3. Papel**, na primeira regra que bater (apoio = 2 por cura + 1 por buff de ATQ ou VEL; controle conta golpe de controle e golpe de dano com estado):
 
-**3. Pontos.** Cura vale +2, buff +1, limpeza +1, debuff +0,5, golpe de dano −1. Defesa própria e incerto valem 0. Ajuste pelos atributos: quem tem cura soma +1 com ESP alto para o estágio e 0 sem ele (INT e ATQ altos não descontam, porque não mexem na cura). Os demais somam −1 com perfil ofensivo e +1 com defensivo.
+1. **Suporte**: apoio 3 ou mais, ou apoio 2 ou mais sem ATQ alto.
+2. **Controle**: 2 ou mais golpes de controle, sem ATQ alto.
+3. **Tanque**: DEF alta, sem ATQ alto.
+4. **DPS**: ATQ alto, ou nada de apoio nem controle no kit.
+5. **Equilíbrio**: o resto.
 
-**4. Papel**, na primeira regra que bater:
+**Rótulo incerto.** Com golpe de efeito incerto, o app refaz a conta lendo esses golpes como cura e depois como dano. Se o papel muda, a ficha mostra "?" e um aviso.
 
-1. **Tanque**: tem golpe de defesa própria e perfil defensivo.
-2. **Suporte**: pontos 0 ou mais e pelo menos 1 golpe de cura, buff ou limpeza.
-3. **Tanque**: golpe de defesa própria com razão abaixo de 1,25, ou perfil defensivo com PV alto para o estágio.
-4. **Controle**: 2 ou mais golpes de debuff, não menos debuff que cura, buff e limpeza somados, e perfil que não seja ofensivo. Debuffer com ATQ ou INT alto bate mais do que atrapalha e cai em DPS.
-5. **DPS**: pontos −2 ou menos.
-6. **Equilíbrio**: o resto, quem tem um pouco de cada.
+**Foco sugerido** (lido em `MA_foco` e `pick_skill`): o foco Suporte cura com aliado abaixo de 80% e põe na frente todo golpe de apoio, que no mod é o de alvo aliado ou si mesmo. Debuff em inimigo conta como ataque, então o Suporte não o adianta. Por isso: DPS vai para Ataque, Suporte para Suporte, e Controle, Tanque e Equilíbrio para Equilíbrio. Quando um Suporte tem golpe sem efeito no mod, a ficha avisa que no foco Suporte ele gasta tempo lançando esse golpe.
 
-Quase todo Digimon tem 2 ou 3 golpes de dano, por isso dano pesa menos que cura: sem isso, só quem não tem especial de dano viraria Suporte.
-
-**Rótulo incerto.** Se o Digimon tem golpe de efeito incerto, o app refaz a conta lendo esses golpes como cura e depois como dano. Se o papel muda em algum dos dois casos, a ficha mostra "?" no rótulo e um aviso.
-
-**Foco sugerido no Monster Arena.** Lido em `bridge\timestranger\ma_realtime.lua` do Monster Arena (`MA_foco`): o foco Suporte cura primeiro e põe na frente dos ataques todo golpe que não é dano nem cura, debuff e Provocação inclusive. Por isso: DPS vai para Ataque. Suporte, Controle e Tanque vão para Suporte. Equilíbrio fica em Equilíbrio. A sugestão vem da leitura do código, não de teste em luta.
-
-Resultado com os dados atuais: 261 DPS, 97 Suporte, 72 Equilíbrio, 30 Tanque, 16 Controle, 21 com rótulo incerto.
-
-**Conferência com a comunidade** (busca em 16/11/2026: fóruns da Steam e da GameFAQs e guias, nenhum tópico do Reddit apareceu). Batem: Venusmon, Varodurumon, Dianamon, Angemon e Sakuyamon (Suporte), UltimateBrachiomon, Guardromon e Mamemon (Tanque), Plutomon e TyrantKabuterimon (DPS). Divergem, com motivo conhecido:
-
-* Aegiomon: guia o chama de curandeiro e debuffer. Aqui sai Tanque, porque tem Provocação e 4 golpes de dano contra 1 de cura.
-* Apocalymon: guia o usa como curandeiro. Aqui sai DPS, porque a cura dele viria de Disco de Habilidade, que a regra não conta.
-* Patamon: guias dizem que serve de suporte ou de DPS. Aqui sai DPS, porque só tem limpeza, sem cura.
-
-Fontes sobre a cura escalar com ESP: [Game8, What Does Spirit (SPI) Do?](https://game8.co/games/Digimon-Story-Time-Stranger/archives/556236), [Grindosaur, Stats](https://www.grindosaur.com/en/games/digimon-story-time-stranger/stats), [TheGamer, LOVE YOU da Venusmon escala com SPI](https://www.thegamer.com/digimon-story-time-stranger-best-digimon-lategame-endgame-plutomon-apocalymon-venusmon-guide/) e [GameFAQs, Healing will improve?](https://gamefaqs.gamespot.com/boards/513530-digimon-story-time-stranger/81050942), onde um jogador diz que a cura escala só com SPI.
+Resultado com os dados atuais: 244 DPS, 98 Equilíbrio, 65 Suporte, 49 Tanque, 20 Controle, 20 com rótulo incerto. Conferidos à mão: Agumon e WarGreymon (DPS, ATQ alto), Venusmon e Sakuyamon (Suporte, cura sem depender de atributo), Craniamon e UltimateBrachiomon (Tanque, DEF alta e ATQ baixo), Sukamon (Controle: Bolha de Ócio e Cocô com veneno), Omnimon (Equilíbrio: 1 buff que vale e 3 golpes sem efeito no mod).
 
 Rodar a regra fora do navegador, para conferir:
 
 ```
 node -e "global.window={};require('./app/dados/dados.js');const P=require('./app/papel.js');console.log(P.calcular(window.DADOS).get(27))"
 ```
+
+### Nota: cura no jogo base
+
+No combate por turno do jogo, a cura escala com ESP. Provado na tabela `battle_calculate` / `battle_formula`, que traz as fórmulas em texto. A linha 8 (natureza Cura) é `行動精神*(1+行動補正値１)/30 × 威力 × (1+対象回復補正/100) × 揺らぎ`: ESP do usuário com buff de ESP, dividido por 30, vezes a potência, vezes o bônus de recuperação do alvo, vezes a variação. INT não aparece. As linhas 9 (cura fixa) e 10 (cura em % do PV máximo) não usam atributo. Nenhum golpe de cura de espécie usa 9 ou 10. Guias e jogadores dizem o mesmo ([Game8](https://game8.co/games/Digimon-Story-Time-Stranger/archives/556236), [Grindosaur](https://www.grindosaur.com/en/games/digimon-story-time-stranger/stats), [TheGamer](https://www.thegamer.com/digimon-story-time-stranger-best-digimon-lategame-endgame-plutomon-apocalymon-venusmon-guide/), [GameFAQs](https://gamefaqs.gamespot.com/boards/513530-digimon-story-time-stranger/81050942)). No Monster Arena isso não vale, porque a cura é calculada pelo mod.
+
+A mesma tabela confirma que a col 22 da `battle_skill` é a linha da fórmula: 1 físico (ATQ contra DEF), 2 mágico (INT contra ESP), 4 dano fixo, 5 % do PV atual, 8 cura, 11 Cross Arts (ATQ + INT). A linha 3 usa VEL contra VEL e a linha 6 é % do PV máximo. O rótulo "Velocidade" que o extrator dá à natureza 6 está trocado, mas nenhum golpe de espécie usa 3 ou 6.
 
 ## Estrutura
 
