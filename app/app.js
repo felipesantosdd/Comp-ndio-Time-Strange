@@ -34,8 +34,41 @@
 
   // ------------------------------------------------------------------ estado local
   const CHAVE = 'compendio-dsts.v1';
-  const S = Object.assign({ col: {}, metas: [], spoiler: false, pers: 0, red: {}, cmp: [], vista: {} }, ler());
+  const S = Object.assign({ col: {}, metas: [], spoiler: false, pers: 0, red: {}, cmp: [], vista: {} }, normalizar(ler()));
   function ler() { try { return JSON.parse(localStorage.getItem(CHAVE)) || {}; } catch (e) { return {}; } }
+  // Tudo que vem do navegador ou de backup importado vira número validado antes de
+  // chegar ao HTML (ids de Digimon existentes, níveis 0..2, personalidade 0..16).
+  function normalizar(o) {
+    const out = {};
+    if (!o || typeof o !== 'object') return out;
+    const idOk = x => Number.isInteger(+x) && porId.has(+x);
+    if (o.col && typeof o.col === 'object') {
+      out.col = {};
+      for (const [k, v] of Object.entries(o.col)) if (idOk(k) && (+v === 1 || +v === 2)) out.col[+k] = +v;
+    }
+    if (Array.isArray(o.metas)) out.metas = o.metas.filter(m => m && idOk(m.de) && idOk(m.para)).map(m => ({ de: +m.de, para: +m.para }));
+    if (Array.isArray(o.cmp)) out.cmp = o.cmp.filter(idOk).map(Number).slice(0, 9);
+    if (o.pers != null) { const p = +o.pers; out.pers = Number.isInteger(p) && p >= 0 && p <= 16 ? p : 0; }
+    if (o.red && typeof o.red === 'object') {
+      out.red = {};
+      for (const [k, v] of Object.entries(o.red)) if (/^[1-4]$/.test(k) && Number.isInteger(+v) && +v >= 0 && +v <= 4) out.red[k] = +v;
+    }
+    if (o.spoiler != null) out.spoiler = !!o.spoiler;
+    if (o.vista && typeof o.vista === 'object') {
+      // filtros de texto passam por esc() ou só viram .value; ids e números são revalidados
+      const v = out.vista = Object.assign({}, o.vista);
+      v.arvore = idOk(v.arvore) ? +v.arvore : undefined;
+      v.prof = [1, 2, 3, 4, 6].includes(+v.prof) ? +v.prof : undefined;
+      if (v.caminho && typeof v.caminho === 'object') {
+        const c = v.caminho;
+        v.caminho = { a: idOk(c.a) ? +c.a : 0, b: idOk(c.b) ? +c.b : 0, est: Array.isArray(c.est) ? c.est.map(Number).filter(Number.isInteger) : [],
+          patente: Number.isInteger(+c.patente) ? +c.patente : 0, tenho: !!c.tenho, devo: c.devo !== false };
+      } else delete v.caminho;
+      for (const k of ['lista', 'itf']) if (v[k] && typeof v[k] !== 'object') delete v[k];
+      if (typeof v.itensAba !== 'string') delete v.itensAba;
+    }
+    return out;
+  }
   function salvar() { try { localStorage.setItem(CHAVE, JSON.stringify(S)); } catch (e) { aviso('Não deu para salvar no navegador.'); } }
   function aviso(t) { const el = document.getElementById('dica'); el.textContent = t; el.hidden = false; clearTimeout(aviso.t); aviso.t = setTimeout(() => (el.hidden = true), 2200); }
 
@@ -47,7 +80,7 @@
     if (!d || d.img == null) return `<span class="ret ${cls || ''}"></span>`;
     return `<img class="ret ${cls || ''} ${oculto(id) ? 'oculto' : ''}" loading="lazy" src="dados/img/${String(d.img).padStart(3, '0')}.webp" alt="">`;
   }
-  const link = id => `<a href="#/digimon/${id}">${esc(nome(id))}</a>`;
+  const link = id => `<a href="#/digimon/${encodeURIComponent(id)}">${esc(nome(id))}</a>`;
   const MARCA = ['', '👁', '★'];
 
   // ------------------------------------------------------------------ redução por personalidade
@@ -569,7 +602,7 @@
     });
     app.querySelector('#imp').addEventListener('change', ev => {
       const f = ev.target.files[0]; if (!f) return;
-      f.text().then(t => { const o = JSON.parse(t); for (const k of ['col', 'metas', 'pers', 'red', 'cmp']) if (o[k] != null) S[k] = o[k]; salvar(); aviso('Backup importado.'); rotas.colecao(); })
+      f.text().then(t => { const o = normalizar(JSON.parse(t)); for (const k of ['col', 'metas', 'pers', 'red', 'cmp']) if (o[k] != null) S[k] = o[k]; salvar(); aviso('Backup importado.'); rotas.colecao(); })
         .catch(() => aviso('Arquivo inválido.'));
     });
     app.querySelector('#zerar').addEventListener('click', () => { if (confirm('Apagar todas as marcações de coleção?')) { S.col = {}; salvar(); rotas.colecao(); } });
