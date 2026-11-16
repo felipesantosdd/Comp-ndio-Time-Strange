@@ -1,0 +1,6 @@
+# arquivos do jogo: cada um regera a partir da própria cópia
+cache/
+app/dados/
+__pycache__/
+*.pyc
+.claude/

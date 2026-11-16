@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compêndio Digimon</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="topo">
+  <a class="marca" href="#/digimon">Compêndio <span>Time Stranger</span></a>
+  <nav id="menu">
+    <a href="#/digimon" data-v="digimon">Digimon</a>
+    <a href="#/arvore" data-v="arvore">Árvore</a>
+    <a href="#/caminho" data-v="caminho">Caminho</a>
+    <a href="#/comparar" data-v="comparar">Comparar</a>
+    <a href="#/itens" data-v="itens">Itens</a>
+    <a href="#/colecao" data-v="colecao">Coleção</a>
+    <a href="#/ajustes" data-v="ajustes">Ajustes</a>
+  </nav>
+  <label class="spoiler" title="Esconde Digimon que você ainda não marcou como visto">
+    <input type="checkbox" id="spoiler"> Sem spoiler
+  </label>
+</header>
+<main id="app"><p class="vazio">Carregando…</p></main>
+<div id="dica" class="dica" hidden></div>
+<script src="dados/dados.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
