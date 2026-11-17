@@ -40,6 +40,7 @@ small, .suave { color: var(--suave); }
 #menu a { padding: 6px 10px; border-radius: 6px; color: var(--suave); }
 #menu a.ativo { background: var(--acento2); color: var(--acento); font-weight: 600; }
 #menu a:hover { text-decoration: none; color: var(--texto); }
+#menu svg { display: none; }
 .spoiler { color: var(--suave); white-space: nowrap; cursor: pointer; }
 
 main { max-width: 1280px; margin: 0 auto; padding: 16px; }
@@ -153,3 +154,115 @@ svg.linhas path.modo { stroke-dasharray: 4 3; }
 details summary { cursor: pointer; color: var(--suave); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips label { display: inline-flex; gap: 4px; align-items: center; padding: 2px 8px; background: var(--painel2); border-radius: 999px; font-size: .85rem; cursor: pointer; }
+.so-celular { display: none; }
+
+/* ------------------------------------------------------------------ celular
+   Menu vira barra fixa embaixo (alcance do polegar), filtros recolhem atrás de
+   um botão, tabelas largas viram cartões e toda área de toque passa de 40px. */
+@media (max-width: 720px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body { -webkit-tap-highlight-color: transparent; padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .so-celular { display: initial; }
+  .so-desktop { display: none !important; }
+
+  .topo { gap: 8px; padding: calc(6px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left)); flex-wrap: nowrap; }
+  .marca { font-size: 1rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spoiler { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--borda); border-radius: 999px; font-size: .85rem; }
+  .spoiler input { margin: 0; width: 16px; height: 16px; }
+
+  #menu { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; gap: 0; flex-wrap: nowrap; justify-content: space-around;
+    background: var(--painel); border-top: 1px solid var(--borda); padding: 4px max(2px, env(safe-area-inset-left)) calc(4px + env(safe-area-inset-bottom)) max(2px, env(safe-area-inset-right)); }
+  #menu a { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 0 4px; border-radius: 10px; font-size: .66rem; line-height: 1.1; }
+  #menu a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #menu svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #menu a.ativo { background: transparent; }
+  #menu a.ativo svg { fill: var(--acento2); }
+
+  main { padding: 12px max(12px, env(safe-area-inset-left)) 16px; }
+  .painel { padding: 12px; border-radius: 12px; }
+  h1 { font-size: 1.35rem; }
+
+  /* toque: iOS dá zoom em campo com fonte menor que 16px */
+  input[type=text], input[type=search], input[type=number], select { font-size: 16px; min-height: 40px; }
+  button { min-height: 38px; }
+  .seg button, .col-status button { min-height: 36px; padding: 4px 10px; }
+  .evo .acoes button { min-height: 34px; font-size: .85rem; }
+  #menu a, .card, .no { -webkit-touch-callout: none; }
+
+  /* filtros recolhidos: busca sempre à mostra, o resto abre no botão */
+  .filtros { gap: 8px; }
+  .filtros input[type=search] { min-width: 0; max-width: none; flex: 1 1 100%; }
+  .filtros.recolhe input[type=search] { flex: 1 1 60%; }
+  .filtros.recolhe > select, .filtros.recolhe > label { display: none; }
+  .filtros.recolhe.aberto > select, .filtros.recolhe.aberto > label { display: block; flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .filtros select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .btn-filtros { display: inline-flex; align-items: center; gap: 6px; }
+  .btn-filtros b { background: var(--acento); color: #fff; border-radius: 999px; padding: 0 7px; font-size: .78rem; }
+  .conta { flex: 1 1 100%; margin-left: 0; font-size: .85rem; }
+
+  /* grade: três por linha num celular comum */
+  .grade { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .card { padding: 22px 4px 8px; }
+  .card .ret { width: 60px; height: 60px; }
+  .card .nome { font-size: .85rem; overflow-wrap: anywhere; }
+  .card .meta { font-size: .72rem; }
+  .card .tag { font-size: .7rem; }
+
+  /* ficha */
+  .cab { gap: 12px; }
+  .cab > .ret.g { width: 88px; height: 88px; }
+  .cab .info { min-width: 0; flex-basis: 100%; }
+  .cab .linha { gap: 6px; }
+  .res { grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .res div { font-size: .7rem; padding: 6px 1px; overflow-wrap: anywhere; text-align: center; }
+  .evos { grid-template-columns: 1fr; }
+  .sel-pers { max-width: 100%; }
+  label:has(> .sel-pers) { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+
+  /* tabelas largas viram cartões: cada célula ganha o rótulo da coluna */
+  table.cartoes, table.cartoes tbody, table.cartoes tr, table.cartoes td { display: block; width: 100%; }
+  table.cartoes thead { display: none; }
+  table.cartoes tr { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+  table.cartoes tr:last-child { border-bottom: 0; }
+  table.cartoes td { border: 0; padding: 1px 0; text-align: left; }
+  table.cartoes td:empty { display: none; }
+  table.cartoes td[data-l]::before { content: attr(data-l) ": "; color: var(--suave); font-size: .8rem; }
+  table.cartoes td.num { text-align: left; }
+  table.cartoes.golpes td:not(:first-child) { display: inline-block; width: auto; margin-right: 12px; font-size: .88rem; }
+  .tabela-rolagem:has(> table.cartoes) { overflow: visible; }
+
+  /* marcar rápido: linha compacta com os botões embaixo do nome */
+  .marcar tr { display: grid; grid-template-columns: 44px 1fr; grid-template-areas: "r n" "r b"; column-gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--borda); }
+  .marcar td { border: 0; padding: 0; }
+  .marcar td:nth-child(1), .marcar td:nth-child(4) { display: none; }
+  .marcar td:nth-child(2) { grid-area: r; }
+  .marcar td:nth-child(3) { grid-area: n; }
+  .marcar td:nth-child(5) { grid-area: b; padding-top: 4px; }
+
+  /* árvore e comparar rolam de lado com encaixe */
+  .arvore { gap: 18px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .arvore .col { min-width: 140px; scroll-snap-align: start; justify-content: flex-start; }
+  .no { font-size: .82rem; padding: 6px; }
+  .cmp { grid-template-columns: repeat(var(--n, 3), minmax(78vw, 1fr)); scroll-snap-type: x mandatory; padding-bottom: 6px; }
+  .cmp .col { scroll-snap-align: center; min-width: 0; }
+
+  /* caminho: seta em cima do passo, seletores em largura cheia */
+  .busca { display: block; width: 100%; }
+  .busca input { width: 100%; }
+  .busca .sug { max-height: 50vh; }
+  .busca .sug div { padding: 8px; }
+  .passo { flex-direction: column; gap: 4px; }
+  .passo .seta { padding-top: 0; min-width: 0; }
+  .passo .evo { width: 100%; }
+
+  .abas { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-left: -12px; margin-right: -12px; padding: 0 12px; }
+  .abas::-webkit-scrollbar { display: none; }
+  .abas button { white-space: nowrap; flex: none; }
+
+  .dica { bottom: calc(76px + env(safe-area-inset-bottom)); max-width: calc(100% - 32px); text-align: center; }
+  details.painel summary { padding: 4px 0; }
+}
+@media (max-width: 380px) {
+  .grade { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  #menu a { font-size: .6rem; }
+}

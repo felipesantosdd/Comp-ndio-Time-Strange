@@ -17,6 +17,14 @@ Depois de atualização do jogo ou DLC nova, rode `python -I extrair\extrair.py 
 
 Opções do extrator: `--jogo` (pasta do jogo, padrão a da Steam), `--mvgltools` (caminho do `MVGLToolsCLI.exe`, padrão o do projeto vizinho Monster Arena), `--sem-imagens`. As variáveis `DSTS_JOGO` e `MVGLTOOLS` fazem o mesmo.
 
+### No celular (Vercel)
+
+A pasta `app\` é um site estático pronto para celular: menu fixo embaixo, filtros recolhidos atrás de um botão, tabelas de golpes e itens viram cartões, e a lista volta para onde estava ao sair de uma ficha. Tem manifesto e service worker, então dá para "Adicionar à tela inicial" e usar sem sinal depois da primeira visita.
+
+Para publicar, rode `Publicar na Vercel.bat` (precisa de Node). Na primeira vez a Vercel pede login e nome do projeto; nas próximas, é só rodar de novo depois de `Atualizar dados.bat`. O deploy sai da pasta local e não de um push, porque `app\dados` fica fora do git.
+
+O service worker busca código e dados na rede primeiro, então cada deploy novo aparece sozinho no próximo acesso com sinal. As marcações de coleção continuam só no navegador de cada aparelho: para levar do PC para o celular, use Exportar e Importar backup na Coleção.
+
 ## O que tem
 
 * **Digimon**: os 476 números do Guia de Campo (base e DLCs 01, 02, 03, 06 e 17), com estágio, tipo, personalidade base, famílias, atributos base, resistências com multiplicador, golpes especiais e aprendidos, perfil, locais, de onde evolui e para onde evolui com todos os requisitos.

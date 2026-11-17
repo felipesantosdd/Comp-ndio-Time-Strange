@@ -152,12 +152,20 @@
 
   // ------------------------------------------------------------------ roteador
   const rotas = {};
+  // Listas longas voltam para onde estavam (abrir a ficha e voltar não joga o
+  // celular para o topo da grade); o resto abre no topo como antes.
+  const VOLTA_ONDE_ESTAVA = new Set(['digimon', 'itens', 'itens/itens', 'colecao']);
+  const posicao = {};
+  let rotaAtual = '';
+  window.addEventListener('scroll', () => { posicao[rotaAtual] = window.scrollY; }, { passive: true });
+  const toque = window.matchMedia('(hover: none)').matches;
   function ir() {
     const h = location.hash.replace(/^#\/?/, '') || 'digimon';
     const [v, ...args] = h.split('/');
+    rotaAtual = h;
     document.querySelectorAll('#menu a').forEach(a => a.classList.toggle('ativo', a.dataset.v === (v === 'item' ? 'itens' : v)));
     (rotas[v] || rotas.digimon)(...args.map(decodeURIComponent));
-    if (!ir.manter) window.scrollTo(0, 0);
+    if (!ir.manter) window.scrollTo(0, VOLTA_ONDE_ESTAVA.has(h) ? posicao[h] || 0 : 0);
     ir.manter = false;
   }
   window.addEventListener('hashchange', ir);
@@ -198,8 +206,9 @@
     if (id) return detalhe(+id);
     const f = S.vista.lista || (S.vista.lista = { q: '', est: '', tipo: '', fam: '', col: '', dlc: '', papel: '', ord: 'dex' });
     app.innerHTML = `
-      <div class="filtros">
+      <div class="filtros recolhe${rotas.digimon.aberto ? ' aberto' : ''}">
         <input type="search" id="q" placeholder="Nome ou nº do guia" value="${esc(f.q)}">
+        <button type="button" class="btn-filtros so-celular" id="btn-filtros">Filtros</button>
         <select id="est"><option value="">Todos os estágios</option>${Object.entries(E.estagios).filter(([k, v]) => +k > 0 && D.digimon.some(d => d.estagio === +k)).map(([k, v]) => `<option value="${k}">${esc(v)}${+k >= 8 && +k <= 13 ? ' (' + k + ')' : ''}</option>`).join('')}</select>
         <select id="tipo"><option value="">Todos os tipos</option>${Object.keys(E.tipos).map(k => `<option value="${k}">${esc(tipoNome(k))}</option>`).join('')}</select>
         <select id="fam"><option value="">Todas as famílias</option>${Object.entries(E.familias).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>
@@ -233,10 +242,20 @@
           ${tagPapel(d.id)}${d.dlc ? '<span class="tag dlc">DLC</span>' : ''}
         </a>`).join('') || '<p class="vazio">Nenhum Digimon com esses filtros.</p>';
     };
+    const btnF = app.querySelector('#btn-filtros');
+    const marcaFiltros = () => {
+      const n = ['est', 'tipo', 'fam', 'col', 'dlc', 'papel'].filter(k => f[k]).length;
+      btnF.innerHTML = 'Filtros' + (n ? ` <b>${n}</b>` : '');
+    };
+    btnF.addEventListener('click', () => {
+      rotas.digimon.aberto = app.querySelector('.filtros').classList.toggle('aberto');
+    });
     app.querySelector('#q').addEventListener('input', e => { f.q = e.target.value; desenhar(); });
-    for (const k of ['est', 'tipo', 'fam', 'col', 'dlc', 'papel', 'ord']) app.querySelector('#' + k).addEventListener('change', e => { f[k] = e.target.value; salvar(); desenhar(); });
+    for (const k of ['est', 'tipo', 'fam', 'col', 'dlc', 'papel', 'ord']) app.querySelector('#' + k).addEventListener('change', e => { f[k] = e.target.value; salvar(); marcaFiltros(); desenhar(); });
+    marcaFiltros();
     desenhar();
-    app.querySelector('#q').focus();
+    // no celular o foco automático abriria o teclado a cada volta para a lista
+    if (!toque) app.querySelector('#q').focus();
   };
 
   // ------------------------------------------------------------------ detalhe
@@ -252,15 +271,18 @@
       salvar(); depois ? depois() : (ir.manter = true, ir());
     }));
   }
+  // célula com rótulo: no celular a tabela vira cartão e o rótulo aparece antes do valor;
+  // célula vazia sai sem espaço para o :empty esconder
+  const celula = (rotulo, html, cls) => `<td${cls ? ` class="${cls}"` : ''}${html === '' ? '' : ` data-l="${rotulo}"`}>${html}</td>`;
   function tabelaGolpes(lista) {
-    return `<div class="tabela-rolagem"><table><thead><tr><th>Golpe</th><th>Elem.</th><th>Natureza</th><th title="O que o golpe faz na rinha em tempo real do Monster Arena">Efeito no mod</th><th class="num">Poder</th><th class="num">PH</th><th>Alvo</th><th class="num">Prec.</th></tr></thead><tbody>${lista.map(([rot, id]) => {
+    return `<div class="tabela-rolagem"><table class="cartoes golpes"><thead><tr><th>Golpe</th><th>Elem.</th><th>Natureza</th><th title="O que o golpe faz na rinha em tempo real do Monster Arena">Efeito no mod</th><th class="num">Poder</th><th class="num">PH</th><th>Alvo</th><th class="num">Prec.</th></tr></thead><tbody>${lista.map(([rot, id]) => {
       const g = D.golpes[id] || { nome: `#${id}` };
       const ac = g.ac && (g.ac[0] > 1 || g.ac[1] > 1) ? ` ×${g.ac[0]}${g.ac[1] !== g.ac[0] ? '~' + g.ac[1] : ''}` : '';
       const ef = [].concat((g.bufAlvo || []).map(b => `${b[1]}% ${b[0]}`), (g.bufUsu || []).map(b => `${b[0]} (usuário)`));
       return `<tr><td>${rot ? `<small>${esc(rot)}</small> ` : ''}<b>${esc(g.nome)}</b>${g.desc ? `<div class="desc">${esc(g.desc)}</div>` : ''}${ef.length ? `<div class="desc">${esc(ef.join(' · '))}</div>` : ''}</td>
-        <td>${g.el >= 0 ? icElem(g.el) + ' ' + esc(elemNome(g.el)) : ''}</td><td>${esc(D.naturezas[g.nat] || '')}</td><td>${esc(efeitoTxt(D.golpes[id]))}</td>
-        <td class="num">${g.pod ? fmt(g.pod) + ac : ''}</td><td class="num">${g.ph ? fmt(g.ph) : ''}</td>
-        <td>${esc(D.alvos[g.alvo] || '')}</td><td class="num">${g.sempre ? 'sempre' : g.prec ? g.prec + '%' : ''}</td></tr>`;
+        <td>${g.el >= 0 ? icElem(g.el) + ' ' + esc(elemNome(g.el)) : ''}</td><td>${esc(D.naturezas[g.nat] || '')}</td>${celula('Mod', esc(efeitoTxt(D.golpes[id])))}
+        ${celula('Poder', g.pod ? fmt(g.pod) + ac : '', 'num')}${celula('PH', g.ph ? fmt(g.ph) : '', 'num')}
+        ${celula('Alvo', esc(D.alvos[g.alvo] || ''))}${celula('Precisão', g.sempre ? 'sempre' : g.prec ? g.prec + '%' : '', 'num')}</tr>`;
     }).join('')}</tbody></table></div>`;
   }
   function seletorPersonalidade() {
@@ -390,6 +412,9 @@
       `<a class="no ${n === id ? 'centro' : ''} ${status(n) === 2 ? 'tem' : ''}" data-n="${n}" href="#/arvore/${n}">${ret(n, 'p')}<span>${esc(nome(n))}<br><small>${esc(estagio(porId.get(n).estagio))}</small></span></a>`).join('')}</div>`).join('');
     if (nivel.size > 1) {
       requestAnimationFrame(() => {
+        // tela estreita: abre com o Digimon do centro à vista, não na primeira coluna
+        const centro = arv.querySelector('.no.centro');
+        if (centro && arv.scrollWidth > arv.clientWidth) arv.scrollLeft = centro.offsetLeft - (arv.clientWidth - centro.offsetWidth) / 2;
         const base = arv.getBoundingClientRect();
         const pos = n => { const el = arv.querySelector(`[data-n="${n}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { x1: r.left - base.left + arv.scrollLeft, x2: r.right - base.left + arv.scrollLeft, y: r.top - base.top + r.height / 2 }; };
         const vistas = new Set();
@@ -557,25 +582,25 @@
     if (aba === 'itens') {
       corpo.innerHTML = `<div class="filtros"><input type="search" id="q" placeholder="Buscar item…" value="${esc(f.q)}">
         <select id="cat"><option value="">Todas as categorias</option>${Object.entries(D.categorias).map(([k, v]) => `<option value="${k}" ${f.cat === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select><span class="conta" id="conta"></span></div>
-        <div class="painel tabela-rolagem"><table><thead><tr><th>Item</th><th>Categoria</th><th class="num">Compra</th><th class="num">Venda</th><th>Descrição</th></tr></thead><tbody id="tb"></tbody></table></div>`;
+        <div class="painel tabela-rolagem"><table class="cartoes"><thead><tr><th>Item</th><th>Categoria</th><th class="num">Compra</th><th class="num">Venda</th><th>Descrição</th></tr></thead><tbody id="tb"></tbody></table></div>`;
       const desenhar = () => {
         const q = semAcento(f.q.trim());
         const l = Object.entries(D.itens).filter(([id, it]) => (!q || semAcento(it.nome).includes(q)) && (f.cat === '' || it.cat === +f.cat));
         corpo.querySelector('#conta').textContent = l.length + ' itens';
-        corpo.querySelector('#tb').innerHTML = l.slice(0, 600).map(([id, it]) => `<tr><td><a href="#/item/${id}">${esc(it.nome)}</a>${it.dlc ? ' <span class="tag dlc">DLC</span>' : ''}</td><td>${esc(D.categorias[it.cat] || '')}</td>
-          <td class="num">${it.compra ? fmt(it.compra) : ''}</td><td class="num">${it.venda ? fmt(it.venda) : ''}</td><td class="desc">${esc((it.desc || (it.efeito || []).join(' ')).slice(0, 140))}</td></tr>`).join('');
+        corpo.querySelector('#tb').innerHTML = l.slice(0, 600).map(([id, it]) => `<tr><td><a href="#/item/${id}">${esc(it.nome)}</a>${it.dlc ? ' <span class="tag dlc">DLC</span>' : ''} <small class="so-celular">${esc(D.categorias[it.cat] || '')}</small></td><td class="so-desktop">${esc(D.categorias[it.cat] || '')}</td>
+          ${celula('Compra', it.compra ? fmt(it.compra) : '', 'num')}${celula('Venda', it.venda ? fmt(it.venda) : '', 'num')}<td class="desc">${esc((it.desc || (it.efeito || []).join(' ')).slice(0, 140))}</td></tr>`).join('');
       };
       corpo.querySelector('#q').addEventListener('input', e => { f.q = e.target.value; desenhar(); });
       corpo.querySelector('#cat').addEventListener('change', e => { f.cat = e.target.value; salvar(); desenhar(); });
       desenhar();
     } else if (aba === 'criacao') {
       corpo.innerHTML = `<div class="filtros"><input type="search" id="q" placeholder="Resultado ou material…"><span class="conta" id="conta"></span></div>
-        <div class="painel tabela-rolagem"><table><thead><tr><th>Resultado</th><th>Materiais</th><th class="num">Custo</th></tr></thead><tbody id="tb"></tbody></table></div>`;
+        <div class="painel tabela-rolagem"><table class="cartoes"><thead><tr><th>Resultado</th><th>Materiais</th><th class="num">Custo</th></tr></thead><tbody id="tb"></tbody></table></div>`;
       const desenhar = q => {
         q = semAcento(q || '');
         const l = D.receitas.filter(r => !q || semAcento(itemNome(r.res)).includes(q) || r.mat.some(m => semAcento(itemNome(m[0])).includes(q)));
         corpo.querySelector('#conta').textContent = l.length + ' receitas';
-        corpo.querySelector('#tb').innerHTML = l.map(r => `<tr><td><a href="#/item/${r.res}">${esc(itemNome(r.res))}</a> <small>${esc(D.categorias[(D.itens[r.res] || {}).cat] || '')}</small></td><td>${qtd(r.mat) || '<small>nenhum</small>'}</td><td class="num">${fmt(r.custo)}</td></tr>`).join('');
+        corpo.querySelector('#tb').innerHTML = l.map(r => `<tr><td><a href="#/item/${r.res}">${esc(itemNome(r.res))}</a> <small>${esc(D.categorias[(D.itens[r.res] || {}).cat] || '')}</small></td>${celula('Materiais', qtd(r.mat) || '<small>nenhum</small>')}${celula('Custo', r.custo ? fmt(r.custo) : '', 'num')}</tr>`).join('');
       };
       corpo.querySelector('#q').addEventListener('input', e => desenhar(e.target.value));
       desenhar('');
@@ -618,7 +643,7 @@
       </div>
       <div class="painel"><h2>Marcar rápido</h2>
         <div class="filtros"><input type="search" id="q" placeholder="Filtrar por nome…"><select id="est"><option value="">Todos os estágios</option>${[...porEst.keys()].sort((a, b) => a - b).map(k => `<option value="${k}">${esc(estagio(k))}${k >= 8 && k <= 13 ? ' ' + k : ''}</option>`).join('')}</select></div>
-        <div class="tabela-rolagem"><table><tbody id="tb"></tbody></table></div>
+        <div class="tabela-rolagem"><table class="marcar"><tbody id="tb"></tbody></table></div>
       </div>`;
     const desenhar = () => {
       const q = semAcento(app.querySelector('#q').value.trim()), e = app.querySelector('#est').value;
@@ -649,10 +674,10 @@
       <div class="painel"><h2>Redução de requisitos por personalidade</h2>
         <p>No jogo, as habilidades de agente “Digievolução de &lt;categoria&gt;” reduzem os atributos exigidos numa evolução quando a personalidade atual do seu Digimon é igual à <b>personalidade base</b> do Digimon alvo. Patente, Talento e Elo não mudam.</p>
         <p>${seletorPersonalidade()}</p>
-        <table><thead><tr><th>Habilidade</th><th>Categoria</th><th>Personalidades</th><th class="num">Redução</th><th>Cópias compradas</th></tr></thead><tbody>
-        ${D.reducao.map(r => `<tr><td>${esc(r.nome)}</td><td>${esc(D.persCatNomes[r.cat])}</td>
+        <table class="cartoes"><thead><tr><th>Habilidade</th><th>Categoria</th><th>Personalidades</th><th class="num">Redução</th><th>Cópias compradas</th></tr></thead><tbody>
+        ${D.reducao.map(r => `<tr><td><b>${esc(r.nome)}</b></td>${celula('Categoria', esc(D.persCatNomes[r.cat]))}
           <td><small>${Object.entries(D.persCat).filter(([p, c]) => c === r.cat).map(([p]) => esc(persNome(+p))).join(', ')}</small></td>
-          <td class="num">${r.pct}% cada</td><td><select data-cat="${r.cat}">${Array.from({ length: r.copias + 1 }, (_, i) => `<option value="${i}" ${+(S.red[r.cat] || 0) === i ? 'selected' : ''}>${i}</option>`).join('')}</select></td></tr>`).join('')}
+          ${celula('Redução', r.pct + '% cada', 'num')}<td data-l="Cópias compradas"><select data-cat="${r.cat}">${Array.from({ length: r.copias + 1 }, (_, i) => `<option value="${i}" ${+(S.red[r.cat] || 0) === i ? 'selected' : ''}>${i}</option>`).join('')}</select></td></tr>`).join('')}
         </tbody></table>
         <p class="aviso">O tabuleiro de habilidades tem ${D.reducao[0] ? D.reducao[0].copias : 4} cópias de cada uma (mesmo nome, ${D.reducao[0] ? D.reducao[0].pct : 20}% cada). Se elas somam não está provado pelos dados: com 1 cópia marcada o cálculo é seguro; acima disso o app soma.</p>
       </div>
