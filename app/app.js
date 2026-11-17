@@ -87,7 +87,8 @@
   const PAPEL = window.Papel ? window.Papel.calcular(D) : new Map();
   const PAPEIS = window.Papel ? window.Papel.PAPEIS : [];
   const PAPEL_CLS = { DPS: 'dps', Controle: 'ctrl', 'Equilíbrio': 'equi', Tanque: 'tanq', Suporte: 'sup' };
-  const EFEITO = { dano: 'Dano', cura: 'Cura', buff: 'Buff de ATQ ou VEL', controle: 'Controle', inerte: 'Sem efeito no mod', incerto: 'Incerto' };
+  const EFEITO = { dano: 'Dano', cura: 'Cura', buff: 'Buff que vale no mod', tanque: 'Tanque (Provocação ou defesa em si)', limpeza: 'Limpeza',
+    controle: 'Controle', inerte: 'Sem efeito no mod', incerto: 'Incerto' };
   function efeitoTxt(g) {
     if (!window.Papel) return '';
     const e = window.Papel.efeito(g);

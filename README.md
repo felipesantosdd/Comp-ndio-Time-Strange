@@ -49,7 +49,7 @@ Nada foi chutado em silêncio. O que não está provado aparece marcado no app o
 
 ## Papel no time
 
-O papel é para o **Monster Arena**, o mod que troca o turno do jogo por rinha em tempo real. Ele segue o que o laço do mod faz hoje (`bridge\timestranger\ma_realtime.lua` do projeto Monster Arena, lido em 16/11/2026 no commit `79435f0`), não o combate por turno. Se o mod mudar a conta de dano, cura ou estados, a regra precisa mudar junto. Nada aqui foi testado em luta.
+O papel é para o **Monster Arena**, o mod que troca o turno do jogo por rinha em tempo real. Ele segue o que o laço do mod faz hoje (`bridge\timestranger\ma_realtime.lua` do projeto Monster Arena, commits `0e85d64` e `2a60a09` de 16/11/2026, no branch `claude/determined-agnesi-fcefd3` até ser mesclado), não o combate por turno. Se o mod mudar a conta de dano, cura ou estados, a regra precisa mudar junto. Nada aqui foi testado em luta.
 
 Calculado no próprio app (`app\papel.js`) com dados que o extrator já gera: natureza, alvo, buffs e descrição de cada golpe (`battle_skill`) e os atributos base. Conta os golpes da espécie (especiais e aprendidos). O mod usa os golpes equipados de verdade quando o jogo responde, então disco de habilidade equipado muda o kit.
 
@@ -57,8 +57,10 @@ Calculado no próprio app (`app\papel.js`) com dados que o extrator já gera: na
 
 * Dano: PV máximo do alvo × 6,5% × 2·ATQ/(ATQ + DEF do alvo), com especial 2,2×. Só ATQ e DEF contam. INT e ESP não entram, nem em golpe mágico. PV alto não protege, porque cada golpe tira a mesma fração dele.
 * Cura: potência/2 % do PV máximo do alvo (Cura, potência 40: 20%). Nenhum atributo entra, então qualquer Digimon com cura cura igual.
-* Buffs e debuffs que mudam algo: ATQ ↑ e VEL ↑ deixam o lutador 1,25× mais rápido por 20 s, e ATQ ↓ e VEL ↓ deixam 1,25× mais lento (`MA_vel_atualiza`). Confusão, Paralisia, Sono, Caótico, Imobilização, Sono Profundo e Cristalização tiram a ação por 5 s. Veneno e Veneno Mortal tiram 6% do PV a cada 5 s até o fim da luta.
-* Sem efeito na luta, só aparece no card: buffs e debuffs de DEF, INT, ESP, PREC, EVAS e CRÍT, resistências, Provocação, contra-ataque, reflexo, redução de dano, imunidades e limpeza de estado.
+* Buffs e debuffs que mudam algo, por 20 s: ATQ ↑ e ATQ ↓ de quem bate, DEF ↑ e DEF ↓ de quem apanha, dano × ou ÷ 1,25 (`MA_dano_estados`). Redução de Dano recebido corta o dano para 70%. VEL ↑ e VEL ↓ deixam 1,25× mais rápido ou mais lento (`MA_vel_atualiza`; até 16/11 o ATQ também mexia na velocidade, por engano). Provocação faz o lado de lá mirar o provocador como se ele estivesse 8 m mais perto.
+* Estados: Confusão, Paralisia, Sono, Caótico, Imobilização, Sono Profundo e Cristalização tiram a ação por 5 s. Veneno e Veneno Mortal tiram 6% do PV a cada 5 s até o fim da luta.
+* Limpeza ("Remove" na descrição): só é lançada com um aliado tendo algo a tirar, e tira estado, redução de atributo ou ferida, conforme o golpe (`MA_limpa`).
+* Sem efeito na luta, só aparece no card: INT, ESP, PREC, EVAS e CRÍT, resistências, contra-ataque, reflexo e imunidades.
 * Golpe recarrega em 4 + 0,12 × PH segundos. Sem golpe pronto, sai ataque comum, então todo mundo bate o tempo todo.
 
 **1. Efeito de cada golpe no mod** (coluna "Efeito no mod" na tabela de golpes):
@@ -67,26 +69,28 @@ Calculado no próprio app (`app\papel.js`) com dados que o extrator já gera: na
 |---|---|
 | Dano | natureza de dano (col 22 = 1, 2, 4, 5, 11). "Dano + estado" quando também aplica um estado que vale no mod |
 | Cura | natureza de cura (col 22 = 8, 9, 10) |
-| Buff de ATQ ou VEL | natureza suporte em aliado ou em si com Aumento de ATQ ou de VEL (Carga e Campo de Ataque e de Velocidade) |
-| Controle | natureza suporte em inimigo com estado que vale no mod (lista acima) |
+| Buff que vale no mod | natureza suporte em aliado ou em si com Aumento de ATQ, DEF ou VEL, ou Redução de Dano recebido (Cargas, Campos, Ciclone da Abelha, Proteção Elétrica) |
+| Tanque | natureza suporte com Provocação (Carga de Ódio, Eco da Atração), ou só em si com DEF ou Redução de Dano (Sopro dos Deuses) |
+| Limpeza | natureza suporte em aliado com "Remove" na descrição e sem estado próprio (Meditação, Normalizar, Dissipar, Restaurar) |
+| Controle | natureza suporte em inimigo com estado que vale no mod (lista acima, agora com Redução de DEF) |
 | Sem efeito no mod | natureza suporte cujo efeito o mod ignora |
 | Incerto | sem dado para decidir. Hoje 4 golpes: Bomba Milagrosa, Virar Barricada, Braço Triplo e Reversão de Personagem. Não são chutados |
 
 **2. Atributos.** ATQ e DEF comparados com a média do mesmo estágio: "ATQ alto" é 15% ou mais acima, "DEF alta" é 20% ou mais acima.
 
-**3. Papel**, na primeira regra que bater (apoio = 2 por cura + 1 por buff de ATQ ou VEL; controle conta golpe de controle e golpe de dano com estado):
+**3. Papel**, na primeira regra que bater (apoio = 2 por cura + 1 por buff que vale + 1 por limpeza; controle conta golpe de controle e golpe de dano com estado):
 
 1. **Suporte**: apoio 3 ou mais, ou apoio 2 ou mais sem ATQ alto.
 2. **Controle**: 2 ou mais golpes de controle, sem ATQ alto.
-3. **Tanque**: DEF alta, sem ATQ alto.
+3. **Tanque**: DEF alta ou golpe de tanque, sem ATQ alto.
 4. **DPS**: ATQ alto, ou nada de apoio nem controle no kit.
 5. **Equilíbrio**: o resto.
 
 **Rótulo incerto.** Com golpe de efeito incerto, o app refaz a conta lendo esses golpes como cura e depois como dano. Se o papel muda, a ficha mostra "?" e um aviso.
 
-**Foco sugerido** (lido em `MA_foco` e `pick_skill`): o foco Suporte cura com aliado abaixo de 80% e põe na frente todo golpe de apoio, que no mod é o de alvo aliado ou si mesmo. Debuff em inimigo conta como ataque, então o Suporte não o adianta. Por isso: DPS vai para Ataque, Suporte para Suporte, e Controle, Tanque e Equilíbrio para Equilíbrio. Quando um Suporte tem golpe sem efeito no mod, a ficha avisa que no foco Suporte ele gasta tempo lançando esse golpe.
+**Foco sugerido** (lido em `MA_foco` e `pick_skill`): desde 16/11 o card do mod tem um botão por papel, então cada papel vai para o foco de mesmo nome (DPS vai para Ataque). Suporte cura com aliado abaixo de 80% e adianta o apoio que vale na luta; Controle adianta o golpe que prende ou enfraquece o alvo que ainda não tem o estado e evita o inimigo já preso; Tanque se reforça primeiro com Provocação, Redução de Dano e DEF, vai no inimigo que bate num aliado e atrai a mira do lado de lá; Equilíbrio sorteia pelo peso. Golpe sem efeito no mod não passa mais na frente no foco Suporte, mas ainda pode sair no sorteio, e a ficha avisa.
 
-Resultado com os dados atuais: 244 DPS, 98 Equilíbrio, 65 Suporte, 49 Tanque, 20 Controle, 20 com rótulo incerto. Conferidos à mão: Agumon e WarGreymon (DPS, ATQ alto), Venusmon e Sakuyamon (Suporte, cura sem depender de atributo), Craniamon e UltimateBrachiomon (Tanque, DEF alta e ATQ baixo), Sukamon (Controle: Bolha de Ócio e Cocô com veneno), Omnimon (Equilíbrio: 1 buff que vale e 3 golpes sem efeito no mod).
+Resultado com os dados atuais: 222 DPS, 94 Equilíbrio, 74 Suporte, 57 Tanque, 29 Controle, 20 com rótulo incerto. Conferidos à mão: Agumon e WarGreymon (DPS, ATQ alto), Venusmon e Sakuyamon (Suporte, cura sem depender de atributo), Craniamon (Tanque: DEF alta, Provocação e defesa em si) e UltimateBrachiomon (Tanque, DEF alta e ATQ baixo), Sukamon (Controle: Bolha de Ócio e Cocô com veneno). Omnimon mudou de Equilíbrio para Suporte em 16/11: buff que vale e limpeza, que agora tira estado de verdade.
 
 Rodar a regra fora do navegador, para conferir:
 
